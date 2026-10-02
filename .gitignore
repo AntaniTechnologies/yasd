@@ -1,0 +1,46 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Packaging and build output
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+*.tar.gz
+
+# YASD debug logs (see --debug, e.g. dump.jsonl)
+*.jsonl
+
+# Local environment and secrets
+.env
+.env.*
+
+# Node tooling present in this checkout
+node_modules/
+
+# Local agent/tool state
+.opencode/
+
+# OS and editor artefacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

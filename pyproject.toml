@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yasd"
+version = "1.0.0"
+description = "Yet Another Strata Dashboard - real-time terminal UI for Strata"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+dependencies = [
+    "rich",
+    "aiohttp",
+]
+
+[project.scripts]
+yasd = "yasd:main"
