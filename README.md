@@ -6,7 +6,7 @@ One file. One command. One screen. Zero fuss.
 ## Prerequisites
 
 - Python 3.10+
-- A running Strata instance (e.g. `python serve/server.py --port 8080`)
+- A running Strata instance
 
 ## Installation
 
