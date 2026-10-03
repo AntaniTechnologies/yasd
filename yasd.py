@@ -1,5 +1,5 @@
 """
-YASD - Yet Another Strata Dashboard (v1.0.0)
+YASD - Yet Another Strata Dashboard (v1.1.0)
 
 A real-time terminal UI for monitoring Strata instances.
 
@@ -50,8 +50,27 @@ from rich.text import Text
 # /v1/status adds the draft-acceptance counters (last_timings.draft_n*).
 POLL_INTERVAL = 0.5
 
-# Fallback sparkline width; the panels compute a real width from the terminal.
+# Fallback graph width in braille cells; the panels compute a real width from
+# the terminal.
 HISTORY_WIDTH = 24
+
+# One hue per hardware card, in card order (Speed, GPU load, VRAM, GPU temp,
+# Power, PCIe, CPU, Disk read, Experts VRAM, System RAM), so no two graph lines
+# read as the same series. Warm hues carry the thermal/power cards, cool hues
+# the capacity ones; Rich folds them down to the terminal's own palette when
+# truecolor is not available.
+GRAPH_COLORS = (
+    "#4ec9b0",  # Speed
+    "#5aa9e6",  # GPU load
+    "#9d8df1",  # VRAM
+    "#f2777a",  # GPU temp
+    "#f5a25d",  # Power
+    "#f7d154",  # PCIe
+    "#a9e34b",  # CPU
+    "#6fd86f",  # Disk read
+    "#4fbfe0",  # Experts VRAM
+    "#c79be0",  # System RAM
+)
 
 # Consecutive failed poll cycles required before reporting OFFLINE.
 # At a 500 ms poll interval this means ~2 s of genuine unreachability.
@@ -153,7 +172,7 @@ class StrataSnapshot:
     threads: int = 0
     psutil: bool = False
 
-    # session totals, request ring, server-side sparkline series
+    # session totals, request ring, server-side history series
     totals: dict = None          # type: ignore[assignment]
     requests: list[dict] = None  # type: ignore[assignment]
     requests_kept: int = 0
@@ -236,28 +255,83 @@ def _gb(b, d: int = 1) -> str:
     return f"{float(b) / 1073741824:,.{d}f}"
 
 
-def _sparkline(values, fixed_max: Optional[float] = None,
-               width: int = HISTORY_WIDTH) -> str:
-    """ASCII equivalent of app.js spark(): 60 one-second samples -> blocks.
+# Braille cell (U+2800 + bits) as btop uses it: two virtual columns and four
+# dot rows per character. Bits are per dot, filled from the bottom up, so a
+# graph of `width` cells plots 2 * width samples and each sample gets four
+# vertical steps instead of one block.
+_BRAILLE_DOTS = ((0x01, 0x02, 0x04, 0x40),   # left  column, bottom -> top
+                 (0x08, 0x10, 0x20, 0x80))   # right column, bottom -> top
 
-    The SVG plots every sample across the card; a text cell cannot, so the
-    series is bucketed and each bucket drawn at its hottest sample.
+
+def _braille_cell(left: int, right: int) -> str:
+    """One cell with `left`/`right` dot rows lit from the bottom up.
+
+    An unlit cell is a space, as in btop's own symbol table: a series of all
+    zeros then renders as blank space instead of 21 empty braille glyphs, which
+    fonts without a Braille Patterns face would draw as tofu boxes.
+    """
+    bits = 0
+    for column, level in enumerate((left, right)):
+        for row in range(level):
+            bits |= _BRAILLE_DOTS[column][row]
+    return chr(0x2800 + bits) if bits else " "
+
+
+# All 25 fill combinations, indexed as btop does: left * 5 + right, where each
+# level is 0-4 lit dot rows out of the cell's four.
+_BRAILLE_UP = tuple(_braille_cell(left, right)
+                    for left in range(5) for right in range(5))
+
+
+def _braille_level(value: float, top: float) -> int:
+    """How many of a cell's four dot rows one sample fills (btop's mapping).
+
+    btop's slight upward bias and C++-style rounding are kept so the curves
+    match what btop shows; on top of that a sample that is not zero always
+    lights one row, the way the old block sparkline drew a ▁ tick, so a busy
+    card never reads as "no data".
+    """
+    if value <= 0:
+        return 0
+    scaled = min(1.0, value / top) * 4.0 + 0.3
+    return max(1, min(4, int(scaled + 0.5)))
+
+
+def _braille_graph(values, fixed_max: Optional[float] = None,
+                   width: int = HISTORY_WIDTH) -> str:
+    """Terminal equivalent of app.js spark(): one-second samples -> braille.
+
+    Braille cells carry two samples side by side, so a `width`-wide card plots
+    2 * width of them and the curve keeps its shape instead of collapsing into
+    one block per character. Samples still outnumber the cells on a narrow
+    card, so the series is bucketed and each bucket drawn at its hottest
+    sample, which keeps single-sample spikes visible.
     """
     vals = [0.0 if v is None else float(v) for v in (values or [])]
-    if len(vals) < 2:
-        return " " * width
-    top = max([fixed_max or 0.0, *vals, 1e-9])
-    if width >= len(vals):
-        buckets = [[v] for v in vals]
-    else:
-        buckets = [[] for _ in range(width)]
+    if width < 1:
+        return ""
+    if not vals:
+        return " " * width                 # no history yet: keep the column full
+    top = float(fixed_max or 0.0) or (max(vals) or 1e-9)
+    if top <= 0:
+        top = 1e-9
+
+    cols = width * 2                       # virtual samples per cell row
+    if len(vals) >= cols:
+        buckets = [[] for _ in range(cols)]
         for i, v in enumerate(vals):
-            buckets[min(width - 1, i * width // len(vals))].append(v)
-    blocks = "▁▂▃▄▅▆▇█"
+            buckets[min(cols - 1, i * cols // len(vals))].append(v)
+        series = [max(b) if b else 0.0 for b in buckets]
+    else:
+        # Partial ring (fresh server, short history): pad on the left so the
+        # newest samples stay flush with the right edge, as btop does.
+        series = [0.0] * (cols - len(vals)) + vals
+
     out = []
-    for b in buckets:
-        v = max(b) if b else 0.0
-        out.append(blocks[min(7, int(v / top * 8))])
+    for i in range(0, cols, 2):
+        left = _braille_level(series[i], top)
+        right = _braille_level(series[i + 1], top)
+        out.append(_BRAILLE_UP[left * 5 + right])
     return "".join(out)
 
 
@@ -578,7 +652,7 @@ class StrataCollector:
         snapshot.threads   = static.get("threads") or 0
         snapshot.psutil    = bool(static.get("psutil"))
 
-        # --- session totals, request ring, sparkline series -------------------
+        # --- session totals, request ring, history series ---------------------
         snapshot.totals         = metrics.get("totals") or {}
         snapshot.requests       = metrics.get("requests") or []
         snapshot.requests_kept  = metrics.get("requests_kept") or len(snapshot.requests)
@@ -672,7 +746,7 @@ HARDWARE_ROWS = 10
 # + requests panel borders + its table header row.
 REQUEST_OVERHEAD = 3 + 3 + (HARDWARE_ROWS + 2) + 2 + 1
 
-# Body split: the right column carries the request table and the sparklines,
+# Body split: the right column carries the request table and the graphs,
 # so it needs more width than the label/value stack on the left.
 LEFT_RATIO, RIGHT_RATIO = 3, 4
 
@@ -1106,8 +1180,10 @@ def make_engine_panel(snapshot: StrataSnapshot,
 def make_hardware_panel(snapshot: StrataSnapshot, term_width: int) -> Panel:
     """The eight Monitor cards plus Experts in VRAM and System RAM.
 
-    One line each: label, value, and an ASCII sparkline of the server's own
-    one-second history ring — the terminal equivalent of the web app's SVG.
+    One line each: label, value, and a braille graph of the server's own
+    one-second history ring — the terminal equivalent of the web app's SVG,
+    drawn the way btop draws its graphs: two samples per character, four dot
+    rows per cell, and a distinct colour per card.
     """
     h = snapshot.history or {}
     decode, prefill, decode_sub, prefill_sub = _display_speeds(snapshot)
@@ -1118,23 +1194,27 @@ def make_hardware_panel(snapshot: StrataSnapshot, term_width: int) -> Panel:
     # no longer fit next to the value, so they are folded into it or dropped.
     narrow  = inner < 40
     label_w = 12 if narrow else 13
-    # The value+detail column is fixed so cards never wrap; the sparkline
+    # The value+detail column is fixed so cards never wrap; the graph
     # absorbs whatever width is left. Two separators are reserved so a value
-    # that exactly fills its column still leaves a gap before the blocks.
+    # that exactly fills its column still leaves a gap before the cells.
     value_w = 18
-    spark_w = max(6, inner - label_w - 3 - value_w)
-    value_w = inner - label_w - 3 - spark_w
+    graph_w = max(6, inner - label_w - 3 - value_w)
+    value_w = inner - label_w - 3 - graph_w
+
+    # Cards are appended in GRAPH_COLORS order, so each one takes the next hue
+    # and the ten lines stay tellable apart instead of blending into one grey.
+    colors = iter(GRAPH_COLORS)
 
     def _card(label: str, value: str, sub: str, series: Optional[str],
               fixed_max: Optional[float], style: str) -> tuple[Text, Text, Text]:
-        spark = _sparkline(h.get(series, []), fixed_max, spark_w) if series else " " * spark_w
+        graph = _braille_graph(h.get(series, []), fixed_max, graph_w) if series else " " * graph_w
         left = Text(label[:label_w], style="cyan")
         mid = Text(value, style=style)
         if sub:
             mid.append("  " + sub, style="dim")
         if len(mid) > value_w:          # keep one line per card
             mid = Text(str(mid)[:value_w - 1] + "…", style=style)
-        return left, mid, Text(spark, style="dim")
+        return left, mid, Text(graph, style=next(colors))
 
     rows = []
 
@@ -1174,7 +1254,7 @@ def make_hardware_panel(snapshot: StrataSnapshot, term_width: int) -> Panel:
 
     gen = snapshot.gpu_pcie_gen_max or snapshot.gpu_pcie_gen
     if narrow:
-        # The rate already has its sparkline; the link description is what
+        # The rate already has its graph; the link description is what
         # has to stay readable.
         pcie_val = (f"Gen{gen} x{snapshot.gpu_pcie_width}"
                     if gen and snapshot.gpu_pcie_width else
@@ -1221,10 +1301,11 @@ def make_hardware_panel(snapshot: StrataSnapshot, term_width: int) -> Panel:
 
     table = Table.grid(expand=True)
     table.add_column(style="cyan", width=13, justify="left")
-    table.add_column(style="", width=inner - 13 - spark_w - 2, justify="left")
-    table.add_column(style="dim", width=spark_w, justify="left")
-    for left, mid, spark in rows:
-        table.add_row(left, mid, spark)
+    table.add_column(style="", width=inner - 13 - graph_w - 2, justify="left")
+    # No column style: the graph cells bring their own per-card colour.
+    table.add_column(style="", width=graph_w, justify="left")
+    for left, mid, graph in rows:
+        table.add_row(left, mid, graph)
 
     return Panel(table, title="[bold]Hardware[/bold]", border_style="yellow")
 

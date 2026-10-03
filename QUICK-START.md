@@ -19,7 +19,7 @@ YASD reads **one data source**: Strata's HTTP interface. No log file, no extra f
 | Endpoint | What YASD gets |
 |---|---|
 | `/health` | Connectivity probe + `loaded` flag (answers even when an API key is set) |
-| `/metrics` | Engine facts, live request, session totals, request ring, hardware + history sparklines |
+| `/metrics` | Engine facts, live request, session totals, request ring, hardware + history series |
 | `/v1/status` | Draft-acceptance counters, service name, uptime, serving concurrency |
 
 Just point YASD at a reachable Strata URL and it renders.
@@ -81,7 +81,7 @@ After starting both, you should see:
 3. **Performance** — Prompt & generation speed with source indicators (`now` / `this run` / `last req`)
 4. **Session** — Request count, tokens read vs reused, tokens written
 5. **Engine** — KV quant, expert slots / cache, speculative-decoding stats
-6. **Hardware** — Speed, GPU, VRAM, temp, power, PCIe, CPU, disk, experts, RAM with sparklines
+6. **Hardware** — Speed, GPU, VRAM, temp, power, PCIe, CPU, disk, experts, RAM with colour-coded braille graphs
 7. **Requests** — Newest request rows with status and token counts
 8. **Activity Log** — State transitions at the bottom
 

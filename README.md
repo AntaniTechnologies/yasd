@@ -1,5 +1,7 @@
 # YASD - Yet Another Strata Dashboard
 
+**Version 1.1.0**
+
 A real-time terminal UI for monitoring Strata instances.
 One file. One command. One screen. Zero fuss.
 
@@ -41,7 +43,7 @@ The dashboard is split into a few panels:
 - **Performance** -- prompt speed and generation speed side by side
 - **Session** -- request count, tokens read vs reused, tokens written
 - **Engine** -- KV quant, expert slots / cache, speculative-decoding stats
-- **Hardware** -- speed, GPU load, VRAM, temp, power, PCIe, CPU, disk, experts VRAM, system RAM, each with a history sparkline
+- **Hardware** -- speed, GPU load, VRAM, temp, power, PCIe, CPU, disk, experts VRAM, system RAM, each with its own colour-coded braille history graph
 - **Requests** -- newest rows of the request ring with status and token counts
 - **Footer** -- last few state transitions in an activity log
 

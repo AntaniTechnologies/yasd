@@ -4,7 +4,7 @@
 
 **YASD** (Yet Another Strata Dashboard) is a real-time terminal UI for monitoring `Strata` instances. It polls `/health`, `/metrics`, and `/v1/status` endpoints every 500 ms and renders a flicker-free dashboard at 10 FPS using the Rich library.
 
-- **Version:** 1.0.0 (check `pyproject.toml` for current)
+- **Version:** 1.1.0 (check `pyproject.toml` for current)
 - **Language:** Python 3.10+
 - **Single file:** `yasd.py` (~1450 lines)
 - **License:** MIT (Copyright 2026 Antani Technologies BV)
@@ -43,7 +43,7 @@
 3. **Performance (left)** — Prompt speed & generation speed side-by-side as `X.X tok/s`, with source sub-labels (`now` / `this run` / `last req`)
 4. **Session (left)** — Request count + start time, tokens read vs reused (with reuse %), tokens written
 5. **Engine (left)** — KV quant, expert slots / cache MB, speculative decoding (MTP draft budget, lookup, pool workers)
-6. **Hardware (right)** — 10 one-line cards (Speed, GPU load, VRAM, GPU temp, Power, PCIe, CPU, Disk read, Experts VRAM, System RAM), each with value + server-side history sparkline
+6. **Hardware (right)** — 10 one-line cards (Speed, GPU load, VRAM, GPU temp, Power, PCIe, CPU, Disk read, Experts VRAM, System RAM), each with value + a btop-style braille history graph in its own colour
 7. **Requests (right, flex)** — Newest N rows of the request ring (Time, Status, Prompt, Reused, Output, Tok/s, Hit); columns collapse responsively
 8. **Footer** — Activity log of last 5 state transitions
 
@@ -74,7 +74,9 @@
 
 ### Number Formatting
 - Mirrors `serve/web/app.js`: `_num` (thousands separators, em-dash for missing), `_kfmt` (k/M suffixes), `_gb` (binary GiB)
-- Sparklines bucket the server's 60 one-second history samples to terminal width, each bucket drawn at its hottest sample
+- Hardware graphs are btop-style braille cells (2 samples per character, 4 dot rows per cell, filled bottom-up, unlit cell = space); `_braille_level` keeps btop's upward bias and C++-style rounding, with a floor of one row for any non-zero sample
+- Each card's graph is coloured from `GRAPH_COLORS` (card order); Rich downsamples to the terminal palette when truecolor is unavailable
+- Graphs bucket the server's 60 one-second history samples to the card's cell width, each bucket drawn at its hottest sample; a short ring is left-padded so the newest samples stay flush right
 
 ### Layout
 - Left column ratio 3 (Metrics flex + Performance/Session/Engine fixed 5 rows), right column ratio 4 (Hardware fixed 12 rows + Requests flex)

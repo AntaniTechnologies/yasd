@@ -1,4 +1,4 @@
-YASD (Yet Another Strata Dashboard) v1.0.0 is a real-time terminal UI for monitoring Strata (https://github.com/antani/Strata) instances.
+YASD (Yet Another Strata Dashboard) v1.1.0 is a real-time terminal UI for monitoring Strata (https://github.com/antani/Strata) instances.
 
 Copyright 2026 Antani Technologies BV — MIT License
 
@@ -13,7 +13,7 @@ Spins up an async background poller (single `asyncio` loop, no thread/lock) that
 - **Performance (left)** — prompt speed and generation speed displayed side-by-side as `X.X tok/s`, with source sub-labels (`now` / `this run` / `last req`)
 - **Session (left)** — request count with start time, tokens read vs reused (with reuse %), tokens written
 - **Engine (left)** — KV quant, expert slots / cache MB, speculative decoding (MTP draft budget, lookup, pool workers)
-- **Hardware (right)** — 10 one-line cards (Speed, GPU load, VRAM, GPU temp, Power, PCIe, CPU, Disk read, Experts VRAM, System RAM), each with value plus server-side history sparkline
+- **Hardware (right)** — 10 one-line cards (Speed, GPU load, VRAM, GPU temp, Power, PCIe, CPU, Disk read, Experts VRAM, System RAM), each with value plus a btop-style braille history graph in its own colour
 - **Requests (right, flex)** — newest N rows of Strata's request ring (Time, Status, Prompt, Reused, Output, Tok/s, Hit); columns collapse responsively on narrow terminals
 - **Footer** — activity log of the last 5 state transitions
 
@@ -25,7 +25,7 @@ Spins up an async background poller (single `asyncio` loop, no thread/lock) that
 - Context usage is `prompt_tokens + generated` while busy, falling back to the last finished request while idle so the gauge never drops to 0 between requests; display is capped at 99.5 % so it never reads exactly 100 %
 - `/health` is the only route that skips authorization, so it doubles as the connectivity probe and answers even when an API key is set; `--api-key` sends `Bearer` to every endpoint except `/health`
 - Offline policy: 4 consecutive failed poll cycles (~2 s at 500 ms) before reporting OFFLINE; 2 consecutive successes to come back ONLINE; a 401 on `/metrics` while `/health` answers stays ONLINE and reports "API key rejected"; malformed JSON keeps the last good snapshot and never flips connectivity
-- Number formatting mirrors `serve/web/app.js` (`_num` / `_kfmt` / `_gb`); sparklines bucket the server's 60 one-second history samples to terminal width, plotting each bucket at its hottest sample
+- Number formatting mirrors `serve/web/app.js` (`_num` / `_kfmt` / `_gb`); hardware graphs are btop-style braille cells (2 samples per character, 4 dot rows per cell, filled bottom-up, unlit cell = space), each card's line in its own colour from `GRAPH_COLORS`; the server's 60 one-second samples are bucketed to the card's cell width, each bucket drawn at its hottest sample, and a short ring is left-padded so the newest samples stay flush right
 - Layout is rebuilt every frame from terminal size: left column ratio 3 (Metrics flex + Performance/Session/Engine fixed 5 rows), right column ratio 4 (Hardware fixed 12 rows + Requests flex); compact mode drops Session/Engine when Metrics cannot keep its 12 rows; Metrics blank spacers are the first rows dropped on short terminals; labels abbreviate below 40 cols inner width (tiny mode below 30)
 - Request rows fit the terminal after fixed-panel overhead, capped by `--requests N | all` (default 5; `all` asks the server for its whole ring via `?requests=all`)
 - Accepts `--server` / `-s` flag for the Strata URL (default http://127.0.0.1:8080); auto-prepends `http://` if scheme is omitted
