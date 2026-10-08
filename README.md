@@ -1,6 +1,6 @@
 # YASD - Yet Another Strata Dashboard
 
-**Version 1.1.0**
+<img width="1109" height="700" alt="yasd" src="https://github.com/user-attachments/assets/dc0ec4ff-54d5-43dc-bc61-74063640c336" />
 
 A real-time terminal UI for monitoring Strata instances.
 One file. One command. One screen. Zero fuss.
