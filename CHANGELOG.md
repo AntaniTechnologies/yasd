@@ -2,6 +2,18 @@
 
 All notable changes to YASD (Yet Another Strata Dashboard) are documented here.
 
+## [1.1.1] - 2026-10-04
+
+### Changed
+- Header: the "Strata {version}" label and value now render `bold cyan`
+  instead of `dim cyan`, matching the "YASD" label colour (`make_header`,
+  `yasd.py`).
+- Default request rows shown in the Requests panel bumped from `5` to `12`
+  (`--requests` default in `main()`, `yasd.py`).
+
+### Docs
+- Version bumped to `1.1.1` in `pyproject.toml` and the `yasd.py` docstring.
+
 ## [1.1.0] - 2026-10-04
 
 ### Changed

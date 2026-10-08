@@ -1,5 +1,5 @@
 """
-YASD - Yet Another Strata Dashboard (v1.1.0)
+YASD - Yet Another Strata Dashboard (v1.1.1)
 
 A real-time terminal UI for monitoring Strata instances.
 
@@ -835,7 +835,7 @@ def make_header(
     if not narrow:
         title.append(" Yet Another Strata Dashboard", style="dim white")
     if snapshot and snapshot.engine_version:
-        title.append(f" · Strata {snapshot.engine_version}", style="dim cyan")
+        title.append(f" · Strata {snapshot.engine_version}", style="bold cyan")
 
     if sleeping:
         # The server answers, the model does not. Not offline.
@@ -1531,8 +1531,8 @@ def main() -> None:
     )
     parser.add_argument(
         "--requests",
-        default="5",
-        help="Request rows to show: a count, or 'all' for every row the server keeps (default: 5)",
+        default="12",
+        help="Request rows to show: a count, or 'all' for every row the server keeps (default: 12)",
     )
     args = parser.parse_args()
 

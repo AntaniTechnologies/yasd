@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "yasd"
-version = "1.1.0"
+version = "1.1.1"
 description = "Yet Another Strata Dashboard - real-time terminal UI for Strata"
 readme = "README.md"
 license = {text = "MIT"}
