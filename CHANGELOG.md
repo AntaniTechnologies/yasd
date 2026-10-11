@@ -2,6 +2,28 @@
 
 All notable changes to YASD (Yet Another Strata Dashboard) are documented here.
 
+## [1.2.0] - 2026-10-11
+
+### Changed
+- Session panel: the Reqs "since" stamp now carries the date, not just the
+  time. Previously `123 since 14:30`; now `123 since Oct 11 14:30` on wide
+  terminals (`make_session_panel`, `yasd.py`).
+- The stamp is chosen responsively so the fixed 5-row Session panel never
+  wraps: it picks the widest date+time form that fits the value column
+  (left inner width minus the 8-col label). Tiers, widest first: human
+  `Oct 11 14:30` (`MONTHS[m]` + space-padded day + `%H:%M`), compact
+  `10-11 14:30`, then time-only `14:30` as the floor.
+- Added a module-level `MONTHS` tuple of locale-independent month
+  abbreviations, so the stamp reads the same on every platform (Windows
+  `strftime`'s `%b` follows the active locale).
+
+### Docs
+- Version bumped to `1.2.0` in `pyproject.toml` and the `yasd.py` docstring.
+
+### Verified
+- Tier ladder exercised across terminal widths 60-100: human form from 76
+  cols up, compact at 74, time-only at 72 and below; `py_compile` clean.
+
 ## [1.1.1] - 2026-10-04
 
 ### Changed

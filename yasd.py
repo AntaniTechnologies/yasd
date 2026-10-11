@@ -1,5 +1,5 @@
 """
-YASD - Yet Another Strata Dashboard (v1.1.1)
+YASD - Yet Another Strata Dashboard (v1.2.0)
 
 A real-time terminal UI for monitoring Strata instances.
 
@@ -78,6 +78,11 @@ OFFLINE_THRESHOLD = 4
 
 # How many request rows /metrics returns without ?requests=all.
 DEFAULT_REQ_ROWS = 12
+
+# Locale-independent month abbreviations, so the Session "since" stamp reads
+# the same on every platform (Windows strftime %b follows the active locale).
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 # Returned by the /metrics fetcher instead of a body when the server answers
 # 401. Distinct from None ("not fetched"), so the poll loop can tell a bad key
@@ -1140,8 +1145,22 @@ def make_session_panel(snapshot: StrataSnapshot,
 
     read = (t.get("prompt_tokens") or 0) - (t.get("reused") or 0)
     reused = t.get("reused") or 0
-    since = datetime.fromtimestamp(t["since"]).strftime("%H:%M") if t.get("since") else ""
     rate = reused / t["prompt_tokens"] * 100 if t.get("prompt_tokens") else None
+
+    # The "since" stamp now carries the date too, but the Session panel is a
+    # fixed 5-row panel, so the row must never wrap: pick the widest date+time
+    # form that fits the value column (left inner width minus the 8-col label).
+    if t.get("since"):
+        dt = datetime.fromtimestamp(t["since"])
+        val_w = _col_widths(term_width)[0] - 8
+        since = f"{dt:%H:%M}"  # time-only floor, always tried last
+        for cand in (f"{MONTHS[dt.month - 1]} {dt.day:>2} {dt:%H:%M}",
+                     f"{dt:%m-%d} {dt:%H:%M}"):
+            if len(f"{t['requests']:,} since {cand}") <= val_w:
+                since = cand
+                break
+    else:
+        since = ""
 
     table.add_row("Reqs:", f"{t['requests']:,} since {since}")
     if _col_widths(term_width)[0] < 40:
